@@ -15,17 +15,17 @@ has 'authorized_keys_file';
 
 sub admin_user {
   my $self = shift;
-  
+
   # Admin user
   my $admin_user = $self->app->dbi->model('user')
     ->select(where => {admin => 1})->one;
-  
+
   return $admin_user;
 }
 
 sub default_branch {
   my ($self, $user, $project, $default_branch) = @_;
-  
+
   # Set default branch
   my $dbi = $self->app->dbi;
   if (defined $default_branch) {
@@ -39,31 +39,31 @@ sub default_branch {
     my $default_branch = $dbi->model('project')
       ->select('default_branch', id => [$user, $project])
       ->value;
-    
+
     return $default_branch;
   }
 }
 
 sub fork_project {
   my ($self, $user, $original_user, $project) = @_;
-  
+
   # Fork project
   my $dbi = $self->app->dbi;
   my $error;
   eval {
     $dbi->connector->txn(sub {
-      
+
       # Original project id
       my $project_info = $dbi->model('project')->select(
         ['original_pid', 'private'],
         id => [$original_user, $project]
       )->one;
-      
+
       my $original_pid = $project_info->{original_pid};
-      
+
       croak "Can't get original project id"
         unless defined $original_pid && $original_pid > 0;
-      
+
       # Create project
       eval {
         $self->_create_project(
@@ -77,7 +77,7 @@ sub fork_project {
         );
       };
       croak $error = $@ if $@;
-      
+
       # Create repository
       eval {
         $self->_fork_rep($original_user, $project, $user, $project);
@@ -90,34 +90,34 @@ sub fork_project {
 
 sub is_admin {
   my ($self, $user) = @_;
-  
+
   # Check admin
   my $is_admin = $self->app->dbi->model('user')
     ->select('admin', id => $user)->value;
-  
+
   return $is_admin;
 }
 
 sub is_private_project {
   my ($self, $user, $project) = @_;
-  
+
   # Is private
   my $private = $self->app->dbi->model('project')
     ->select('private', id => [$user, $project])->value;
-  
+
   return $private;
 }
 
 sub members {
   my ($self, $user, $project) = @_;
-  
+
   # DBI
   my $dbi = $self->app->dbi;
-  
+
   # Original project id
   my $original_pid = $dbi->model('project')
     ->select('original_pid', id => [$user, $project])->value;
-  
+
   # Members
   my $members = $dbi->model('project')->select(
     ['user_id as id', 'name as project'],
@@ -140,12 +140,12 @@ sub members {
 
 sub create_project {
   my ($self, $user, $project, $opts) = @_;
-  
+
   my $params = {};
   if ($opts->{private}) {
     $params->{private} = 1;
   }
-  
+
   # Create project
   my $dbi = $self->app->dbi;
   my $error;
@@ -179,7 +179,7 @@ sub create_user {
 
 sub delete_project {
   my ($self, $user, $project) = @_;
-  
+
   # Delete project
   my $dbi = $self->app->dbi;
   my $error;
@@ -196,7 +196,7 @@ sub delete_project {
 
 sub delete_user {
   my ($self, $user) = @_;
-  
+
   # Delete user
   my $dbi = $self->app->dbi;
   my $error;
@@ -210,22 +210,22 @@ sub delete_user {
     });
   };
   croak $error if $@;
-  
+
   return $count;
 }
 
 sub original_project {
   my ($self, $user, $project) = @_;
-  
+
   # Original project id
   my $dbi = $self->app->dbi;
   my $row = $dbi->model('project')->select(
     ['original_user', 'original_pid'],
     id => [$user, $project]
   )->one;
-  
+
   croak "Original project don't eixsts." unless $row;
-  
+
   # Original project
   my $original_project = $dbi->model('project')->select(
     'name',
@@ -234,21 +234,21 @@ sub original_project {
       original_pid => $row->{original_pid}
     }
   )->value;
-  
+
   return unless defined $original_project && length $original_project;
-  
+
   return $original_project;
 }
 
 sub original_user {
   my ($self, $user, $project) = @_;
-  
+
   # Orginal user
   my $original_user = $self->app->dbi->model('project')
     ->select('original_user', id => [$user, $project])
     ->value;
   return unless defined $original_user && length $original_user;
-  
+
   return $original_user;
 }
 
@@ -260,25 +260,25 @@ sub projects {
     where => {user_id => $user},
     append => 'order by name'
   )->all;
-  
+
   return $projects;
 }
 
 sub users {
   my $self = shift;
-  
+
   # Users
   my $users = $self->app->dbi->model('user')->select(
     where => [':admin{<>}',{admin => 1}],
     append => 'order by id'
   )->all;
-  
+
   return $users;
 }
 
 sub rename_project {
   my ($self, $user, $project, $to_project) = @_;
-  
+
   # Rename project
   my $git = $self->app->git;
   my $dbi = $self->app->dbi;
@@ -296,9 +296,9 @@ sub rename_project {
 
 sub setup_database {
   my $self = shift;
-  
+
   my $dbi = $self->app->dbi;
-  
+
   # Create user table
   eval {
     my $sql = <<"EOS";
@@ -319,7 +319,7 @@ EOS
   for my $column (@$user_columns) {
     eval { $dbi->execute("alter table user add column $column") };
   }
-  
+
   # Check user table
   eval { $dbi->select([qw/row_id id admin password salt/], table => 'user') };
   if ($@) {
@@ -347,7 +347,7 @@ EOS
   for my $column (@$ssh_public_key_columns) {
     eval { $dbi->execute("alter table ssh_public_key add column $column") };
   }
-  
+
   # Check ssh_public_key table
   eval { $dbi->select([qw/row_id user_id key title/], table => 'ssh_public_key') };
   if ($@) {
@@ -355,7 +355,7 @@ EOS
     $self->app->log->error($error);
     croak $error;
   }
-  
+
   # Create project table
   eval {
     my $sql = <<"EOS";
@@ -368,7 +368,7 @@ create table project (
 EOS
     $dbi->execute($sql);
   };
-  
+
   # Create Project columns
   my $project_columns = [
     "default_branch not null default 'master'",
@@ -401,7 +401,7 @@ create table collaboration (
 EOS
     $dbi->execute($sql);
   };
-  
+
   # Check collaboration table
   eval { $dbi->select([qw/row_id user_id project_name collaborator_id/], table => 'collaboration') };
   if ($@) {
@@ -420,7 +420,7 @@ create table number (
 EOS
     $dbi->execute($sql);
   };
-  
+
   # Create number columns
   my $number_columns = [
     "value integer not null default '0'"
@@ -436,7 +436,7 @@ EOS
     $self->app->log->error($error);
     croak $error;
   }
-  
+
   # Original project id numbert
   eval { $dbi->insert({key => 'original_pid'}, table => 'number') };
   my $original_pid = $dbi->select(
@@ -449,6 +449,29 @@ EOS
     $self->app->log->error($error);
     croak $error;
   }
+
+  # Create merge_request table
+  eval {
+    my $sql = <<"EOS";
+create table merge_request (
+  row_id integer primary key autoincrement,
+  source_branch not null default '',
+  target_branch not null default '',
+  project_id not null default '',
+  author_id not null default ''
+);
+EOS
+    $dbi->execute($sql);
+  };
+
+  # Check merge_request table
+  eval { $dbi->select([qw/row_id source_branch target_branch project_id author_id/], table => 'merge_request') };
+  if ($@) {
+    my $error = "Can't create merge_request table properly: $@";
+    $self->app->log->error($error);
+    croak $error;
+  }
+
 }
 
 
@@ -457,14 +480,14 @@ sub update_authorized_keys_file {
 
   my $authorized_keys_file = $self->authorized_keys_file;
   if (defined $authorized_keys_file) {
-    
+
     # Lock file
     my $lock_file = $self->app->home->rel_file('lock/authorized_keys');
     open my $lock_fh, $lock_file
       or croak "Can't open lock file $lock_file";
     flock $lock_fh, LOCK_EX
       or croak "Can't lock $lock_file";
-    
+
     # Create authorized_keys_file
     unless (-f $authorized_keys_file) {
       open my $fh, '>', $authorized_keys_file
@@ -472,7 +495,7 @@ sub update_authorized_keys_file {
       chmod 0600, $authorized_keys_file
         or croak "Can't chmod authorized_keys file: $authorized_keys_file";
     }
-    
+
     # Parse file
     my $result = $self->parse_authorized_keys_file($authorized_keys_file);
     my $before_part = $result->{before_part};
@@ -480,7 +503,7 @@ sub update_authorized_keys_file {
     my $after_part = $result->{after_part};
     my $start_symbol = $result->{start_symbol};
     my $end_symbol = $result->{end_symbol};
-    
+
     # Backup at first time
     if ($gitprep_part eq '') {
       # Backup original file
@@ -499,7 +522,7 @@ sub update_authorized_keys_file {
         . " $key->{user_id}\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty $key->{key}";
       $ssh_public_keys_str .= "$ssh_public_key_str $key->{user_id}\n\n";
     }
-    
+
     # Output tmp file
     my $output = "$before_part$start_symbol\n\n$ssh_public_keys_str$end_symbol$after_part";
     my $output_file = "$authorized_keys_file.gitprep.tmp";
@@ -514,7 +537,7 @@ sub update_authorized_keys_file {
       or croak "Can't chmod authorized_keys tmp file: $output_file";
     move $output_file, $authorized_keys_file
       or croak "Can't replace $authorized_keys_file by $output_file";
-    
+
     # Unlock file
     flock $lock_fh, LOCK_EX
       or croak "Can't unlock $lock_file"
@@ -526,10 +549,10 @@ sub update_authorized_keys_file {
 
 sub parse_authorized_keys_file {
   my ($self, $file) = @_;
-  
+
   my $start_symbol = "# gitprep start";
   my $end_symbol = "# gitprep end";
-  
+
   # Parse
   open my $fh, '<', $file
     or croak "Can't open authorized_key file $file";
@@ -571,7 +594,7 @@ sub parse_authorized_keys_file {
       $after_part .= $line;
     }
   }
-  
+
   my $result = {
     start_symbol => $start_symbol,
     end_symbol => $end_symbol,
@@ -579,14 +602,14 @@ sub parse_authorized_keys_file {
     gitprep_part => $gitprep_part,
     after_part => $after_part
   };
-  
+
   return $result;
 }
 
 sub _create_project {
   my ($self, $user, $project, $params) = @_;
   $params ||= {};
-  
+
   # Create project
   my $dbi = $self->app->dbi;
   $dbi->connector->txn(sub {
@@ -602,7 +625,7 @@ sub _create_project {
 
 sub _create_rep {
   my ($self, $user, $project, $opts) = @_;
-  
+
   # Create repository directory
   my $git = $self->app->git;
   my $rep = $git->rep($user, $project);
@@ -617,14 +640,14 @@ sub _create_rep {
         or croak  "Can't open git init --bare:@git_init_cmd";
       close $fh or croak  "Can't execute git init --bare:@git_init_cmd";
     }
-    
+
     # Add git-daemon-export-ok
     {
       my $file = "$rep/git-daemon-export-ok";
       open my $fh, '>', $file
         or croak "Can't create git-daemon-export-ok: $!"
     }
-    
+
     # HTTP support
     my @git_update_server_info_cmd = $git->cmd_rep(
       $rep,
@@ -636,7 +659,7 @@ sub _create_rep {
     close $update_server_info_fh or croak "Can't execute git --bare update-server-info";
     move("$rep/hooks/post-update.sample", "$rep/hooks/post-update")
       or croak "Can't move post-update";
-    
+
     # Description
     my $description = $opts->{description};
     $description = '' unless defined $description;
@@ -648,7 +671,7 @@ sub _create_rep {
         or croak "Can't write $file: $!";
       close $fh;
     }
-    
+
     # Add README and commit
     if ($opts->{readme}) {
       # Create working directory
@@ -662,7 +685,7 @@ sub _create_rep {
       open my $init_fh, "-|", @git_init_cmd
         or croak "Can't open git init: @git_init_cmd";
       close $init_fh or croak "Can't execute git init: @git_init_cmd";
-      
+
       # Add README
       my $file = "$temp_work/README.md";
       open my $readme_fh, '>', $file
@@ -670,7 +693,7 @@ sub _create_rep {
       print $readme_fh "# $project\n";
       print $readme_fh "\n" . encode('UTF-8', $description) . "\n";
       close $readme_fh;
-      
+
       my @git_add_cmd = $git->cmd_rep(
         $temp_work,
         "--work-tree=$temp_work",
@@ -680,7 +703,7 @@ sub _create_rep {
       open my $add_fh, "-|", @git_add_cmd
         or croak "Can't open git add: @git_add_cmd";
       close $add_fh or croak "Can't execute git add: @git_add_cmd";
-      
+
       # Commit
       my $author = "$user <$user\@localhost>";
       my @git_commit_cmd = $git->cmd_rep(
@@ -695,7 +718,7 @@ sub _create_rep {
       open my $commit_fh, "-|", @git_commit_cmd
         or croak "Can't open git commit: @git_commit_cmd";
       close $commit_fh or croak "Can't execute git commit: @git_commit_cmd";
-      
+
       # Push
       {
         my @git_push_cmd = $git->cmd_rep(
@@ -722,14 +745,14 @@ sub _create_rep {
 
 sub _create_db_user {
   my ($self, $user, $data) = @_;
-  
+
   # Create database user
   $self->app->dbi->model('user')->insert($data, id => $user);
 }
 
 sub _create_user_dir {
   my ($self, $user) = @_;
-  
+
   # Create user directory
   my $rep_home = $self->app->git->rep_home;
   my $user_dir = "$rep_home/$user";
@@ -738,16 +761,16 @@ sub _create_user_dir {
 
 sub _delete_db_user {
   my ($self, $user) = @_;
-  
+
   # Delete database user
   my $count = $self->app->dbi->model('user')->delete(id => $user);
-  
+
   return $count;
 }
 
 sub _delete_user_dir {
   my ($self, $user) = @_;
-  
+
   # Delete user directory
   my $rep_home = $self->app->git->rep_home;
   my $user_dir = "$rep_home/$user";
@@ -756,7 +779,7 @@ sub _delete_user_dir {
 
 sub _delete_project {
   my ($self, $user, $project) = @_;
-  
+
   # Delete project
   my $dbi = $self->app->dbi;
   $dbi->model('project')->delete(id => [$user, $project]);
@@ -777,35 +800,35 @@ sub _delete_rep {
 
 sub exists_project {
   my ($self, $user, $project) = @_;
-  
+
   # Exists project
   my $dbi = $self->app->dbi;
   my $row = $dbi->model('project')->select(id => [$user, $project])->one;
-  
+
   return $row ? 1 : 0;
 }
 
 sub exists_user {
   my ($self, $user) = @_;
-  
+
   # Exists project
   my $row = $self->app->dbi->model('user')->select(id => $user)->one;
-  
+
   return $row ? 1 : 0;
 }
 
 sub _exists_rep {
   my ($self, $user, $project) = @_;
-  
+
   # Exists repository
   my $rep = $self->app->git->rep($user, $project);
-  
+
   return -e $rep;
 }
 
 sub _fork_rep {
   my ($self, $user, $project, $to_user, $to_project) = @_;
-  
+
   # Fork repository
   my $git = $self->app->git;
   my $rep = $git->rep($user, $project);
@@ -820,7 +843,7 @@ sub _fork_rep {
   );
   system(@cmd) == 0
     or croak "Can't fork repository(_fork_rep): @cmd";
-  
+
   # Copy description
   copy "$rep/description", "$to_rep/description"
     or croak "Can't copy description file(_fork_rep)";
@@ -828,11 +851,11 @@ sub _fork_rep {
 
 sub _rename_project {
   my ($self, $user, $project, $renamed_project) = @_;
-  
+
   # Check arguments
   croak "Invalid parameters(_rename_project)"
     unless defined $user && defined $project && defined $renamed_project;
-  
+
   # Rename project
   my $dbi = $self->app->dbi;
   $dbi->model('project')->update(
@@ -843,7 +866,7 @@ sub _rename_project {
 
 sub _rename_rep {
   my ($self, $user, $project, $renamed_project) = @_;
-  
+
   # Check arguments
   croak "Invalid user name or project"
     unless defined $user && defined $project && defined $renamed_project;
